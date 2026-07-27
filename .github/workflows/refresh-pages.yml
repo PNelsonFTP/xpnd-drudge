@@ -1,0 +1,88 @@
+name: Refresh static site and deploy Pages
+
+on:
+  schedule:
+    # Hourly at :10 UTC — same pattern as AI/Cyber Drudge.
+    - cron: "10 * * * *"
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "data/**"
+      - "scripts/build_static_data.py"
+      - "requirements.txt"
+      - ".github/workflows/refresh-pages.yml"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: refresh-pages
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build static snapshot
+        run: python scripts/build_static_data.py --base-path /xpnd-drudge/
+
+      - name: Quality gate
+        run: |
+          python - <<'PY'
+          import json, sys
+          from pathlib import Path
+          p = Path("site/data/dashboard.json")
+          assert p.exists(), "missing dashboard.json"
+          data = json.loads(p.read_text())
+          assert data.get("mode") == "static"
+          assert data.get("company_count", 0) >= 1, "no companies"
+          assert data.get("headline_count", 0) >= 1, "no headlines"
+          assert Path("site/index.html").exists()
+          assert Path("site/static/app.js").exists()
+          assert Path("site/data/alerts.csv").exists()
+          print(
+              f"OK: {data['company_count']} companies, "
+              f"{data['headline_count']} headlines, "
+              f"{data['negative_total']} negative"
+          )
+          PY
+
+      - name: Commit refreshed snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [[ -n "$(git status --porcelain site/)" ]]; then
+            git add site/
+            git commit -m "chore(data): refresh static snapshot $(date -u +%FT%TZ)"
+            git push
+          else
+            echo "No site/ changes to commit."
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

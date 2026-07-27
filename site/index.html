@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>XPND DRUDGE</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="static/style.css" />
   <meta name="theme-color" content="#2f4e75" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%232f4e75' width='32' height='32'/><rect fill='%23edc339' y='27' width='32' height='5'/><text x='16' y='22' text-anchor='middle' fill='%23ffffff' font-size='16' font-family='Arial,Helvetica,sans-serif' font-weight='700'>X</text></svg>" />
 </head>
@@ -102,7 +102,7 @@
 
   <footer class="site-footer">
     <span id="footer-left">
-      XPND DRUDGE — portfolio news for the First Trust Expanded Technology ETF ·
+      XPND DRUDGE (static) — portfolio news for the First Trust Expanded Technology ETF ·
       <a href="https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=XPND" target="_blank" rel="noopener">holdings source</a>
     </span>
     <span id="footer-right"></span>
@@ -132,7 +132,7 @@
       </header>
       <div class="modal-body">
         <div class="kbd-row"><kbd>/</kbd><span>focus search</span></div>
-        <div class="kbd-row"><kbd>r</kbd><span>refresh headlines</span></div>
+        <div class="kbd-row"><kbd>r</kbd><span>reload published snapshot</span></div>
         <div class="kbd-row"><kbd>t</kbd><span>toggle dark / light</span></div>
         <div class="kbd-row"><kbd>n</kbd><span>negative headlines only</span></div>
         <div class="kbd-row"><kbd>h</kbd><span>last 24 hours only</span></div>
@@ -149,13 +149,13 @@
 
   <script>
     window.XPND_CONFIG = {
-      mode: "live",
-      basePath: "/",
-      dataUrl: "/api/dashboard",
-      csvUrl: "/api/alerts.csv",
-      workflowUrl: ""
+      mode: "static",
+      basePath: "/xpnd-drudge/",
+      dataUrl: "data/dashboard.json",
+      csvUrl: "data/alerts.csv",
+      workflowUrl: "https://github.com/PNelsonFTP/xpnd-drudge/actions/workflows/refresh-pages.yml"
     };
   </script>
-  <script src="/static/app.js" defer></script>
+  <script src="static/app.js" defer></script>
 </body>
 </html>
