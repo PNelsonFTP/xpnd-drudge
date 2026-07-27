@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="comfortable">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>XPND DRUDGE</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <meta name="theme-color" content="#2f4e75" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect fill='%232f4e75' width='32' height='32'/><rect fill='%23edc339' y='27' width='32' height='5'/><text x='16' y='22' text-anchor='middle' fill='%23ffffff' font-size='16' font-family='Arial,Helvetica,sans-serif' font-weight='700'>X</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#columns">Skip to company sections</a>
+
+  <div class="sticky-top">
+    <header class="site-header">
+      <div class="header-row">
+        <button type="button" class="masthead" id="btn-home" title="Back to home view">
+          <span class="logo"><span class="siren">XPND</span> DRUDGE</span>
+          <span class="tagline" id="tagline">expanded technology etf · loading</span>
+        </button>
+        <div class="toolbar">
+          <button type="button" class="tool-btn" id="btn-bookmarks" aria-label="Bookmarks">★ <span data-count="bookmarks">0</span></button>
+          <button type="button" class="tool-btn" id="btn-queue" aria-label="Read later queue">⏷ <span data-count="queue">0</span></button>
+          <button type="button" class="tool-btn" id="btn-mutes" aria-label="Manage mutes">✕ <span data-count="mutes">0</span></button>
+          <span class="tool-sep" aria-hidden="true"></span>
+          <button type="button" class="tool-btn" id="btn-digest" aria-label="Copy risk digest">COPY DIGEST</button>
+          <button type="button" class="tool-btn" id="btn-csv" aria-label="Download alerts CSV">CSV</button>
+          <button type="button" class="tool-btn" id="btn-help" aria-label="Keyboard shortcuts">?</button>
+          <button type="button" class="tool-btn" id="btn-refresh" aria-label="Refresh news">↻ <span id="refresh-countdown"></span></button>
+          <button type="button" class="tool-btn" id="btn-theme" aria-label="Toggle theme">DARK</button>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <input
+          id="search"
+          type="search"
+          placeholder="search headlines, sources, companies…  (press /)"
+          autocomplete="off"
+          aria-label="Search headlines"
+        />
+        <label class="ctl">
+          <span>sort</span>
+          <select id="sort" aria-label="Sort companies">
+            <option value="weight">portfolio weight</option>
+            <option value="recent">newest news</option>
+            <option value="negative">most negative</option>
+            <option value="move">biggest mover</option>
+            <option value="alpha">ticker A–Z</option>
+          </select>
+        </label>
+        <label class="ctl">
+          <span>sector</span>
+          <select id="sector" aria-label="Filter by sector">
+            <option value="">all sectors</option>
+          </select>
+        </label>
+        <div class="chips" role="group" aria-label="Filters">
+          <button type="button" class="chip" data-filter="neg">negative only</button>
+          <button type="button" class="chip" data-filter="24h">last 24h</button>
+          <button type="button" class="chip" data-filter="unread">unread</button>
+          <button type="button" class="chip" id="btn-density">compact</button>
+        </div>
+      </div>
+    </header>
+
+    <div id="ticker" class="ticker-bar" hidden></div>
+    <div id="summary" class="summary-bar" hidden></div>
+    <nav id="index-strip" class="index-strip" aria-label="Jump to company" hidden></nav>
+  </div>
+
+  <main class="main">
+    <div id="banners" aria-live="polite"></div>
+
+    <div id="skeleton" class="skeleton" aria-hidden="true">
+      <div class="sk-block sk-lg"></div>
+      <div class="sk-cols">
+        <div><div class="sk-block"></div><div class="sk-block"></div><div class="sk-block"></div></div>
+        <div><div class="sk-block"></div><div class="sk-block"></div><div class="sk-block"></div></div>
+        <div><div class="sk-block"></div><div class="sk-block"></div><div class="sk-block"></div></div>
+      </div>
+    </div>
+
+    <p id="status" class="status" role="status" aria-live="polite">Loading headlines…</p>
+
+    <div id="home-view" hidden>
+      <div class="top-grid">
+        <div class="top-main">
+          <section id="lead-story" class="panel" hidden></section>
+          <section id="trending" class="panel" hidden></section>
+        </div>
+        <div class="top-side">
+          <section id="daily-brief" class="panel" hidden></section>
+          <section id="latest" class="panel" hidden></section>
+        </div>
+      </div>
+      <div id="columns" class="columns"></div>
+    </div>
+
+    <div id="list-view" hidden></div>
+  </main>
+
+  <footer class="site-footer">
+    <span id="footer-left">
+      XPND DRUDGE — portfolio news for the First Trust Expanded Technology ETF ·
+      <a href="https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=XPND" target="_blank" rel="noopener">holdings source</a>
+    </span>
+    <span id="footer-right"></span>
+  </footer>
+
+  <div id="hover-card" class="hover-card" hidden></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+
+  <div id="mutes-modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Manage mutes">
+      <header class="modal-head">
+        <h2>Manage mutes</h2>
+        <button type="button" id="btn-close-mutes" class="tool-btn" aria-label="Close">✕</button>
+      </header>
+      <div id="mutes-body" class="modal-body"></div>
+      <footer class="modal-foot">
+        <button type="button" id="btn-restore-all" class="tool-btn">Restore all</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="help-modal" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
+      <header class="modal-head">
+        <h2>Keyboard shortcuts</h2>
+        <button type="button" id="btn-close-help" class="tool-btn" aria-label="Close">✕</button>
+      </header>
+      <div class="modal-body">
+        <div class="kbd-row"><kbd>/</kbd><span>focus search</span></div>
+        <div class="kbd-row"><kbd>r</kbd><span>refresh headlines</span></div>
+        <div class="kbd-row"><kbd>t</kbd><span>toggle dark / light</span></div>
+        <div class="kbd-row"><kbd>n</kbd><span>negative headlines only</span></div>
+        <div class="kbd-row"><kbd>h</kbd><span>last 24 hours only</span></div>
+        <div class="kbd-row"><kbd>u</kbd><span>unread only</span></div>
+        <div class="kbd-row"><kbd>b</kbd><span>bookmarks view</span></div>
+        <div class="kbd-row"><kbd>l</kbd><span>read-later view</span></div>
+        <div class="kbd-row"><kbd>d</kbd><span>copy risk digest</span></div>
+        <div class="kbd-row"><kbd>c</kbd><span>toggle compact density</span></div>
+        <div class="kbd-row"><kbd>g</kbd><span>back to home view</span></div>
+        <div class="kbd-row"><kbd>Esc</kbd><span>close panels / clear search</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
