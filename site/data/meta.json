@@ -1,10 +1,10 @@
 {
   "mode": "static",
-  "generatedAt": "2026-08-10T20:55:42.564741+00:00",
+  "generatedAt": "2026-08-10T21:52:50.596793+00:00",
   "company_count": 50,
   "headline_count": 500,
-  "negative_total": 36,
+  "negative_total": 38,
   "severe_total": 0,
-  "builtAt": "2026-08-10T20:55:42.588382+00:00",
+  "builtAt": "2026-08-10T21:52:50.615001+00:00",
   "basePath": "/xpnd-drudge/"
 }
