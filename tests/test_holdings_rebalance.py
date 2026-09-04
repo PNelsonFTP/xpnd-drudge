@@ -94,6 +94,9 @@ class HoldingsRebalanceTests(unittest.TestCase):
         self.assertIn("ServiceNow", now.search_query)
         self.assertNotIn("OR", gen.search_query)
         self.assertIn('"Apple" OR "AAPL" stock', aapl.search_query)
+        fox = Holding("FOXA", "Fox Corporation", "", "Media", 0.23)
+        self.assertEqual(fox.clean_name, "Fox")
+        self.assertNotIn("corporation", fox.name_tokens)
 
     def test_partial_drop_only_scrape_is_rejected(self) -> None:
         scraped = [_row(f"T{i:02d}", "2.00") for i in range(50)]

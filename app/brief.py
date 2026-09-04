@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
 from app.news import Article, CompanyNews
+from app.sentiment import is_lawsuit_mill, is_tape_move
+
+_BASKET = [
+    re.compile(r"\bstock market today\b", re.I),
+    re.compile(r"\bstocks to watch\b", re.I),
+]
+
+
+def _is_basket_headline(title: str) -> bool:
+    return any(rx.search(title) for rx in _BASKET)
+
+
+def _current_tickers(companies: list[CompanyNews]) -> set[str]:
+    return {c.ticker for c in companies}
 
 
 def build_brief(
@@ -14,7 +29,10 @@ def build_brief(
     alerts: Optional[list[dict]] = None,
 ) -> dict:
     """Assemble a short curated brief for the dashboard header."""
-    alerts = alerts or []
+    active = _current_tickers(companies)
+    if lead and lead.get("ticker") not in active:
+        lead = None
+    alerts = [a for a in (alerts or []) if a.get("ticker") in active]
     neg_companies = [c for c in companies if c.negative_count > 0]
     total_arts = sum(len(c.articles) for c in companies)
     freshest: list[tuple[CompanyNews, Article]] = []
@@ -79,23 +97,24 @@ def build_brief(
 
 
 def pick_lead(companies: list[CompanyNews]) -> Optional[dict]:
-    """Highest-impact recent story: prefer negative, then freshest."""
+    """Highest-impact recent story: prefer negative fundamentals, then freshest."""
     candidates: list[tuple[float, CompanyNews, Article]] = []
     for c in companies:
         for a in c.articles:
             if not a.published or a.low_value:
                 continue
-            age_h = a.age_hours if a.age_hours is not None else 999
-            if age_h > 96:
+            if is_lawsuit_mill(a.title):
                 continue
-            # Score: negative weight + recency + portfolio weight
-            recency = max(0.0, 48.0 - age_h) / 48.0
-            score = (
-                a.negative_score * 3.0
-                + (2.0 if a.negative else 0.0)
-                + recency * 2.0
-                + min(c.weighting, 6.0) / 6.0
-            )
+            age_h = a.age_hours if a.age_hours is not None else 999
+            if age_h > 72:
+                continue
+            recency = max(0.0, 72.0 - age_h) / 72.0
+            # Prefer elevated/severe fundamentals over tape-move watch.
+            if is_tape_move(a.title) and a.negative_score <= 1:
+                impact = 0.5
+            else:
+                impact = a.negative_score * 3.0 + (2.0 if a.negative else 0.0)
+            score = impact + recency * 2.0 + min(c.weighting, 6.0) / 6.0
             candidates.append((score, c, a))
     if not candidates:
         return None
@@ -124,9 +143,18 @@ def _norm_title(title: str) -> str:
 
 def build_trending(alerts: list[dict], limit: int = 8) -> list[dict]:
     """Surface portfolio risk headlines as the trending rail."""
+    sev_rank = {"severe": 3, "elevated": 2, "watch": 1, "none": 0}
+    ranked = sorted(
+        alerts,
+        key=lambda a: (
+            sev_rank.get(a.get("severity", "watch"), 0),
+            a.get("published") or "",
+        ),
+        reverse=True,
+    )
     out: list[dict] = []
     seen: set[str] = set()
-    for a in alerts:
+    for a in ranked:
         key = _norm_title(a["title"])
         if key in seen:
             continue
@@ -156,7 +184,7 @@ def build_latest(companies: list[CompanyNews], limit: int = 15) -> list[dict]:
     seen_titles: set[str] = set()
     for c in companies:
         for a in c.articles:
-            if a.low_value:
+            if a.low_value or _is_basket_headline(a.title):
                 continue
             key = _norm_title(a.title)
             if a.id in seen_ids or key in seen_titles:
@@ -178,4 +206,14 @@ def build_latest(companies: list[CompanyNews], limit: int = 15) -> list[dict]:
                 }
             )
     items.sort(key=lambda x: x["published"] or "", reverse=True)
-    return items[:limit]
+    out: list[dict] = []
+    per_ticker: dict[str, int] = {}
+    for it in items:
+        ticker = it["ticker"]
+        if per_ticker.get(ticker, 0) >= 2:
+            continue
+        per_ticker[ticker] = per_ticker.get(ticker, 0) + 1
+        out.append(it)
+        if len(out) >= limit:
+            break
+    return out

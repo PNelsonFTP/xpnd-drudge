@@ -32,6 +32,7 @@
   const AUTO_REFRESH_MS = IS_STATIC ? 15 * 60 * 1000 : 10 * 60 * 1000;
   const COLLAPSED_PER_COMPANY = 5;
   const READ_CAP = 3000;
+  const NARROW_PX = 700;
 
   const state = {
     data: null,
@@ -137,9 +138,26 @@
   // ---------- theme / density ----------
   function applyTheme(theme) {
     const t = theme === "light" ? "light" : "dark";
+    const next = t === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", t);
-    el.themeBtn.textContent = t.toUpperCase();
+    el.themeBtn.textContent = t === "dark" ? "Dark" : "Light";
+    el.themeBtn.setAttribute("aria-label", `Theme: ${t}. Switch to ${next}.`);
+    el.themeBtn.title = `Currently ${t}. Click to switch to ${next}.`;
     localStorage.setItem(KEYS.theme, t);
+  }
+
+  function applyChromeLabels() {
+    const refreshLabel = IS_STATIC ? "Reload snapshot" : "Refresh news";
+    const helpLabel = IS_STATIC ? "reload snapshot" : "refresh headlines";
+    const btn = $("btn-refresh");
+    if (btn) {
+      btn.setAttribute("aria-label", refreshLabel);
+      btn.title = refreshLabel;
+    }
+    const lab = $("refresh-label");
+    if (lab) lab.textContent = refreshLabel;
+    const help = $("help-refresh");
+    if (help) help.textContent = helpLabel;
   }
 
   function applyDensity(d) {
@@ -152,6 +170,7 @@
 
   applyTheme(localStorage.getItem(KEYS.theme) || "light");
   applyDensity(localStorage.getItem(KEYS.density) || "comfortable");
+  applyChromeLabels();
 
   // ---------- helpers ----------
   function ageHours(iso) {
@@ -327,6 +346,26 @@
   }
 
   // ---------- filtering ----------
+  function isNarrowViewport() {
+    return window.innerWidth < NARROW_PX;
+  }
+
+  function narrowingActive() {
+    return Boolean(state.search.trim() || state.filters.size || state.sector);
+  }
+
+  function looksLikeTicker(q) {
+    return /^[A-Za-z]{1,5}$/.test((q || "").trim());
+  }
+
+  function coverageOf(data) {
+    return (data && data.coverage) || {};
+  }
+
+  function tickerSet(list) {
+    return new Set((Array.isArray(list) ? list : []).map((t) => String(t).toUpperCase()));
+  }
+
   function matchesSearch(a, company) {
     const q = state.search.trim().toLowerCase();
     if (!q) return true;
@@ -337,14 +376,69 @@
       .includes(q);
   }
 
+  function companyMatchesSearch(c) {
+    const q = state.search.trim().toLowerCase();
+    if (!q) return true;
+    const ticker = String(c.ticker || "").toLowerCase();
+    const name = String(c.company_name || "").toLowerCase();
+    if (looksLikeTicker(q)) {
+      return ticker === q || name.includes(q);
+    }
+    return [ticker, name, c.classification]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(q);
+  }
+
   function passesFilters(a) {
     if (state.filters.has("neg") && !a.negative) return false;
     if (state.filters.has("24h") && ageHours(a.published) > 24) return false;
-    if (state.filters.has("unread") && readIds.has(a.id)) return false;
+    if (state.filters.has("unread") && a.id && readIds.has(a.id)) return false;
     return true;
   }
 
+  function articleSearchCompany(a) {
+    return {
+      ticker: a.ticker,
+      company_name: a.company_name,
+      classification: a.classification,
+    };
+  }
+
+  function companyEmptyMessage(c, data) {
+    const coverage = coverageOf(data);
+    const failed = tickerSet(coverage.feedFailures);
+    const ticker = String(c.ticker || "").toUpperCase();
+    if (failed.has(ticker)) {
+      return "Feed failed for this name — last snapshot kept nothing.";
+    }
+    if (state.search.trim() || state.filters.size) {
+      return "No headlines match the current filters.";
+    }
+    return "No headlines in the last 7 days";
+  }
+
+  function emptyColumnsMessage(data) {
+    const q = state.search.trim();
+    if (looksLikeTicker(q)) {
+      const tick = q.toUpperCase();
+      const inFile = (data.companies || []).some((c) => companyMatchesSearch(c));
+      if (!inFile) {
+        const added = tickerSet(holdingsSync(data).added);
+        return added.has(tick)
+          ? `${tick} is not in the current XPND file. It was just added pending the next snapshot.`
+          : `${tick} is not in the current XPND file`;
+      }
+    }
+    if (q || state.filters.size || state.sector) {
+      return "Nothing matches the current search or filters.";
+    }
+    return "All sections hidden — open Mutes to restore.";
+  }
+
   function filteredCompanies(data) {
+    const q = state.search.trim();
     const list = (data.companies || [])
       .filter((c) => !mutedTickers.has(c.ticker))
       .filter((c) => !state.sector || c.classification === state.sector)
@@ -355,8 +449,12 @@
         ),
       }));
 
-    const narrowing = state.search.trim() || state.filters.size > 0;
-    const visible = narrowing ? list.filter((c) => c.articles.length > 0) : list;
+    const visible = list.filter((c) => {
+      if (c.articles.length > 0) return true;
+      if (q && companyMatchesSearch(c)) return true;
+      if (!q && !state.filters.size) return true;
+      return false;
+    });
 
     const quotes = data.stocks || {};
     const sorters = {
@@ -384,26 +482,45 @@
     el.btnQueue.classList.toggle("active", state.view === "queue");
   }
 
+  let lastTickerMarkup = "";
+
+  function tickerItemHTML(sym, q, neg) {
+    return `<a class="ticker-item${neg ? " has-neg" : ""}" href="#${esc(sym)}" data-jump="${esc(sym)}" title="${neg ? "has negative headlines" : ""}">
+          <span class="ticker-sym">${esc(sym)}</span>
+          <span>$${Number(q.price).toFixed(2)}</span>
+          ${quotePctHTML(q, "ticker")}
+        </a>`;
+  }
+
+  function syncTickerMotion() {
+    const seq = el.ticker.querySelector(".ticker-seq");
+    if (!seq) return;
+    const width = seq.scrollWidth;
+    const pxPerSec = 55;
+    el.ticker.style.setProperty("--ticker-duration", `${Math.max(36, width / pxPerSec).toFixed(1)}s`);
+  }
+
   function renderTicker(data) {
     const entries = Object.entries(data.stocks || {});
     if (!entries.length) {
       el.ticker.hidden = true;
+      lastTickerMarkup = "";
       return;
     }
     const negByTicker = new Map(
       (data.companies || []).map((c) => [c.ticker, c.negative_count])
     );
-    el.ticker.hidden = false;
-    el.ticker.innerHTML = entries
-      .map(([sym, q]) => {
-        const neg = (negByTicker.get(sym) || 0) > 0;
-        return `<a class="ticker-item${neg ? " has-neg" : ""}" href="#${esc(sym)}" data-jump="${esc(sym)}" title="${neg ? "has negative headlines" : ""}">
-          <span class="ticker-sym">${esc(sym)}</span>
-          <span>$${Number(q.price).toFixed(2)}</span>
-          ${quotePctHTML(q, "ticker")}
-        </a>`;
-      })
+    const items = entries
+      .map(([sym, q]) => tickerItemHTML(sym, q, (negByTicker.get(sym) || 0) > 0))
       .join("");
+    if (items === lastTickerMarkup && !el.ticker.hidden) return;
+    lastTickerMarkup = items;
+    el.ticker.hidden = false;
+    el.ticker.innerHTML = `<div class="ticker-track">
+      <div class="ticker-seq">${items}</div>
+      <div class="ticker-seq" aria-hidden="true">${items}</div>
+    </div>`;
+    requestAnimationFrame(syncTickerMotion);
   }
 
   function renderSummary(data) {
@@ -508,9 +625,14 @@
     </article>`;
   }
 
+  function hidePanel(node) {
+    node.hidden = true;
+    node.innerHTML = "";
+  }
+
   function renderBrief(brief) {
-    if (!brief) {
-      el.brief.hidden = true;
+    if (!brief || narrowingActive()) {
+      hidePanel(el.brief);
       return;
     }
     el.brief.hidden = false;
@@ -523,16 +645,16 @@
       <ul class="brief-bullets">${(brief.bullets || []).map((b) => `<li>${esc(b)}</li>`).join("")}</ul>`;
   }
 
-  function renderTrending(items) {
-    const q = state.search.trim().toLowerCase();
+  function renderTrending(items, visibleTickers) {
     const list = (items || []).filter((t) => {
       if (mutedTickers.has(t.ticker)) return false;
-      if (state.filters.has("24h") && ageHours(t.published) > 24) return false;
-      if (!q) return true;
-      return `${t.title} ${t.ticker}`.toLowerCase().includes(q);
+      if (narrowingActive() && visibleTickers && !visibleTickers.has(t.ticker)) return false;
+      const row = { ...t, negative: true };
+      if (!matchesSearch(row, articleSearchCompany(row)) || !passesFilters(row)) return false;
+      return true;
     });
     if (!list.length) {
-      el.trending.hidden = true;
+      hidePanel(el.trending);
       return;
     }
     el.trending.hidden = false;
@@ -558,9 +680,15 @@
       </ol>`;
   }
 
-  function renderLead(lead) {
-    if (!lead || mutedTickers.has(lead.ticker) || !matchesSearch(lead, lead) || !passesFilters(lead)) {
-      el.lead.hidden = true;
+  function renderLead(lead, visibleTickers) {
+    if (
+      !lead ||
+      mutedTickers.has(lead.ticker) ||
+      (narrowingActive() && visibleTickers && !visibleTickers.has(lead.ticker)) ||
+      !matchesSearch(lead, articleSearchCompany(lead)) ||
+      !passesFilters(lead)
+    ) {
+      hidePanel(el.lead);
       return;
     }
     el.lead.hidden = false;
@@ -599,15 +727,14 @@
     return d.toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" }).toUpperCase();
   }
 
-  function renderLatest(items) {
-    const q = state.search.trim().toLowerCase();
+  function renderLatest(items, visibleTickers) {
     const list = (items || [])
       .filter((a) => !mutedTickers.has(a.ticker) && !mutedSources.has(a.source || ""))
-      .filter((a) => passesFilters(a))
-      .filter((a) => (!q ? true : `${a.title} ${a.source} ${a.ticker}`.toLowerCase().includes(q)))
+      .filter((a) => !narrowingActive() || !visibleTickers || visibleTickers.has(a.ticker))
+      .filter((a) => matchesSearch(a, articleSearchCompany(a)) && passesFilters(a))
       .slice(0, 14);
     if (!list.length) {
-      el.latest.hidden = true;
+      hidePanel(el.latest);
       return;
     }
     el.latest.hidden = false;
@@ -637,8 +764,10 @@
 
   function renderColumns(companies, data) {
     const quotes = data.stocks || {};
-    const cols = [[], [], []];
-    companies.forEach((c, i) => cols[i % 3].push(c));
+    const narrow = isNarrowViewport();
+    el.columns.classList.toggle("single", narrow);
+    const cols = narrow ? [companies] : [[], [], []];
+    if (!narrow) companies.forEach((c, i) => cols[i % 3].push(c));
     el.columns.innerHTML = cols
       .map(
         (col) => `<div class="col">${col
@@ -665,7 +794,7 @@
               ${
                 shown.length
                   ? shown.map((a) => headlineHTML({ ...a, ticker: c.ticker })).join("")
-                  : '<p class="empty">No headlines match the current filters.</p>'
+                  : `<p class="empty">${esc(companyEmptyMessage(c, data))}</p>`
               }
               ${
                 hiddenCount > 0
@@ -729,18 +858,19 @@
       el.home.hidden = false;
       el.list.hidden = true;
       const companies = filteredCompanies(data);
+      const visibleTickers = new Set(companies.map((c) => c.ticker));
       renderIndex(companies, data);
       renderBrief(data.brief);
-      renderLead(data.lead);
-      renderLatest(data.latest);
-      renderTrending(data.trending);
+      renderLead(data.lead, visibleTickers);
+      renderLatest(data.latest, visibleTickers);
+      renderTrending(data.trending, visibleTickers);
+      const topGrid = document.querySelector(".top-grid");
+      if (topGrid) {
+        topGrid.hidden = [el.lead, el.brief, el.trending, el.latest].every((n) => n.hidden);
+      }
       if (!companies.length) {
-        el.columns.innerHTML = `<p class="empty" style="grid-column:1/-1;text-align:center;padding:40px">
-          ${
-            state.search || state.filters.size || state.sector
-              ? "Nothing matches the current search or filters."
-              : "All sections hidden — open ✕ to restore mutes."
-          }</p>`;
+        el.columns.classList.add("single");
+        el.columns.innerHTML = `<p class="empty empty-page">${esc(emptyColumnsMessage(data))}</p>`;
       } else {
         renderColumns(companies, data);
       }
@@ -1017,7 +1147,7 @@
         mutedTickers.add(t);
         saveSet(KEYS.mutedTickers, mutedTickers);
         render();
-        toast(`Hid ${t} — restore via ✕`);
+        toast(`Hid ${t} — restore via Mutes`);
       }
       return;
     }
@@ -1125,6 +1255,14 @@
       default:
         break;
     }
+  });
+
+  let wasNarrow = isNarrowViewport();
+  window.addEventListener("resize", () => {
+    const narrow = isNarrowViewport();
+    if (narrow === wasNarrow) return;
+    wasNarrow = narrow;
+    if (state.data && state.view === "home") render();
   });
 
   window.addEventListener("hashchange", () => {

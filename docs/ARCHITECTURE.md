@@ -55,12 +55,16 @@ This is the same architecture lesson documented in AI Drudge / Cyber Drudge.
 |-------|---------|
 | `mode` | `"live"` or `"static"` |
 | `generatedAt` | ISO UTC build time |
+| `quotesAsOf` | ISO UTC when quotes were fetched |
 | `companies[]` | Per-holding articles + severity |
-| `lead`, `brief`, `trending`, `latest` | Home rails |
+| `lead`, `brief`, `trending`, `latest` | Home rails (rule-based in `app/brief.py`, not an LLM) |
 | `alerts[]` | Negative digest / CSV source |
 | `stocks`, `portfolio` | Quotes + weighted day move |
+| `coverage` | News + quote health: `missingNews`, `feedFailures`, `emptyFeeds`, `articleCount`, `quoteCoverage`, `quotesAsOf`, `quoteOutliers` |
 | `sectors[]` | Filter dropdown |
 | `holdingsSync` | Official-universe sync: as-of, added, removed, reconstitution flag |
+
+`severe_total` counts `severity == "severe"` headlines and skips `low_value` filings.
 
 Client config (`window.XPND_CONFIG`) switches data/CSV URLs and refresh UX.
 
@@ -68,10 +72,15 @@ Client config (`window.XPND_CONFIG`) switches data/CSV URLs and refresh UX.
 
 | Capability | Live | Static |
 |------------|------|--------|
-| Instant re-fetch (`r` / ↻) | Yes — clears server cache | Reloads published JSON only |
+| Instant re-fetch (`r` / ↻) | Yes — `POST /api/refresh` clears news + quotes | Reloads published JSON only |
 | Trigger new scrape | Always | Actions → **Run workflow** |
 | CSV export | `/api/alerts.csv` live | `data/alerts.csv` from last build |
 | Hosting cost | Needs a Python process | Free GitHub Pages |
 | Cold start | Free-tier hosts may sleep | None |
+| Unit tests | [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) on PR and `main` (app/tests/scripts; no scrape) | Same tests, plus scrape + quality gate + Pages deploy in `refresh-pages.yml` |
 
 UI features (search, filters, bookmarks, mutes, theme, keyboard, severity, grouping) are identical — they run entirely in the browser against the payload.
+
+Holdings sync runs in the Pages workflow (`scripts/update_holdings.py`, continue-on-error so an FT outage does not kill news). Names that leave the fund are deactivated and drop out of live news sections.
+
+Static quality gate (hard fail; last-good `site/` stays published if the job dies before commit): `company_count` 40–60, `headline_count` ≥ 100, `quoteCoverage` ≥ 0.80 when `coverage` is present, and fail when `missingNews` > 10 **and** `missingNews / company_count` > 0.20. Missing `holdingsAsOf` is a warning unless `company_count` is also below 40.
