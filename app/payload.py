@@ -8,8 +8,9 @@ import time
 from datetime import datetime, timezone
 
 from app.brief import build_brief, build_latest, build_trending, pick_lead
-from app.holdings import load_holdings
+from app.holdings import load_holdings, load_holdings_meta
 from app.news import clear_cache, collect_alerts, fetch_all_news
+from app.stocks import clear_cache as clear_stocks_cache
 from app.stocks import fetch_stocks, portfolio_stats
 
 # Assembled payloads are cheap to reuse; the news layer has its own 15m cache.
@@ -19,6 +20,7 @@ PAYLOAD_CACHE_SECONDS = 60
 
 def clear_payload_cache() -> None:
     clear_cache()
+    clear_stocks_cache()
     _PAYLOAD_CACHE.clear()
 
 
@@ -71,6 +73,7 @@ def build_dashboard_payload(
         "alerts": alerts,
         "stocks": quotes,
         "portfolio": portfolio_stats(holdings, quotes),
+        "holdingsSync": load_holdings_meta(),
         "companies": [c.to_dict() for c in company_news],
     }
     _PAYLOAD_CACHE[per_company] = (now + PAYLOAD_CACHE_SECONDS, payload)

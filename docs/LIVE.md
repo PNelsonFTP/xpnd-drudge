@@ -42,7 +42,7 @@ Connect this GitHub repo as a **Web Service**, build with `pip install -r requir
 .venv/bin/python scripts/update_holdings.py
 ```
 
-Merges from the First Trust XPND holdings page into `data/holdings.csv`, preserving `active` flags and custom names.
+Scrapes the official First Trust XPND holdings page into `data/holdings.csv` and writes `data/holdings_meta.json` (adds/drops, as-of date). Names that left the fund are deactivated so they stop appearing as live news sections. User-deactivated names that are still in the fund stay off. Use `--check` to report drift without writing, or `--keep-unlisted` only if you intentionally want extra watchlist tickers.
 
 ## Key modules
 

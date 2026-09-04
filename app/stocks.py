@@ -14,10 +14,48 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 XPNDDrudgeBot/1.0",
 }
 
-_CACHE: tuple[float, dict] | None = None
+# (expires_epoch, ticker_tuple, quotes)
+_CACHE: tuple[float, tuple[str, ...], dict] | None = None
 CACHE_SECONDS = 10 * 60
 TIMEOUT = 5
 MAX_WORKERS = 8
+# Yahoo 5d closes can be unadjusted across a split; treat huge prints as bad quotes.
+OUTLIER_PCT = 15.0
+
+
+def compute_day_change(
+    price: float,
+    meta: dict,
+    closes: list,
+) -> tuple[float, float, bool]:
+    """Return (change, changePct, outlier).
+
+    Prefer Yahoo's split-adjusted ``previousClose``. Walking raw 5d closes
+    first is what printed APH at -47% after a split.
+    """
+    ref = None
+    for key in ("previousClose", "chartPreviousClose"):
+        value = meta.get(key)
+        if isinstance(value, (int, float)) and value:
+            ref = float(value)
+            break
+    if ref is None:
+        for i in range(len(closes) - 2, -1, -1):
+            close = closes[i]
+            if isinstance(close, (int, float)) and close:
+                ref = float(close)
+                break
+    if ref is None:
+        ref = float(price)
+    change = float(price) - ref
+    pct = (change / ref * 100.0) if ref else 0.0
+    return change, pct, abs(pct) >= OUTLIER_PCT
+
+
+def clear_cache() -> None:
+    """Drop the quote cache so a holdings swap requotes immediately."""
+    global _CACHE
+    _CACHE = None
 
 
 def _yahoo_quote(symbol: str) -> Optional[dict]:
@@ -42,20 +80,13 @@ def _yahoo_quote(symbol: str) -> Optional[dict]:
             ((result[0].get("indicators") or {}).get("quote") or [{}])[0].get("close")
             or []
         )
-        prior = None
-        for i in range(len(closes) - 2, -1, -1):
-            c = closes[i]
-            if isinstance(c, (int, float)):
-                prior = c
-                break
-        ref = prior or meta.get("previousClose") or meta.get("chartPreviousClose") or price
-        change = float(price) - float(ref)
-        pct = (change / float(ref) * 100.0) if ref else 0.0
+        change, pct, outlier = compute_day_change(float(price), meta, closes)
         return {
             "symbol": symbol,
             "price": round(float(price), 2),
             "change": round(change, 2),
             "changePct": round(pct, 2),
+            "outlier": outlier,
         }
     except Exception:  # noqa: BLE001
         return None
@@ -68,11 +99,10 @@ def fetch_stocks(
     """Return quotes for holdings (all by default). Cached ~10 minutes."""
     global _CACHE
     now = time.time()
-    if _CACHE and _CACHE[0] > now:
-        return _CACHE[1]
-
     hs = holdings or load_holdings()
-    tickers = [h.ticker for h in (hs[:limit] if limit else hs)]
+    tickers = tuple(h.ticker for h in (hs[:limit] if limit else hs))
+    if _CACHE and _CACHE[0] > now and _CACHE[1] == tickers:
+        return _CACHE[2]
     out: dict[str, dict] = {}
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
@@ -84,7 +114,7 @@ def fetch_stocks(
 
     # Preserve weight order
     ordered = {t: out[t] for t in tickers if t in out}
-    _CACHE = (now + CACHE_SECONDS, ordered)
+    _CACHE = (now + CACHE_SECONDS, tickers, ordered)
     return ordered
 
 
@@ -96,9 +126,13 @@ def portfolio_stats(
     weighted = 0.0
     gainers = 0
     losers = 0
+    excluded = 0
     for h in holdings:
         q = quotes.get(h.ticker)
         if not q:
+            continue
+        if q.get("outlier"):
+            excluded += 1
             continue
         total_weight += h.weighting
         weighted += h.weighting * float(q["changePct"])
@@ -111,4 +145,5 @@ def portfolio_stats(
         "gainers": gainers,
         "losers": losers,
         "covered": gainers + losers,
+        "quoteOutliers": excluded,
     }

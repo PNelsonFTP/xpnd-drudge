@@ -119,9 +119,14 @@ Editable source of truth: [`data/holdings.csv`](data/holdings.csv)
 
 ### Refresh holdings from First Trust
 
+The hourly Pages workflow now syncs the official XPND holdings page before rebuilding news. Locally:
+
 ```bash
-.venv/bin/python scripts/update_holdings.py
+.venv/bin/python scripts/update_holdings.py          # write CSV + reconstitution meta
+.venv/bin/python scripts/update_holdings.py --check  # report adds/drops, exit 2 if reconstituted
 ```
+
+Names that leave the fund are deactivated (kept for history) instead of remaining live columns. A reconstitution banner appears on the dashboard when adds/drops are detected.
 
 ## Project layout
 

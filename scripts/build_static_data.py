@@ -107,6 +107,7 @@ def main() -> int:
     alerts_path = data_dir / "alerts.csv"
     alerts_path.write_text(alerts_csv_text(payload), encoding="utf-8")
 
+    holdings_sync = payload.get("holdingsSync") or {}
     meta = {
         "mode": "static",
         "generatedAt": payload["generatedAt"],
@@ -116,6 +117,11 @@ def main() -> int:
         "severe_total": payload["severe_total"],
         "builtAt": datetime.now(timezone.utc).isoformat(),
         "basePath": args.base_path,
+        "holdingsAsOf": holdings_sync.get("asOf"),
+        "holdingsSyncedAt": holdings_sync.get("syncedAt"),
+        "rebalanceDetected": bool(holdings_sync.get("rebalanceDetected")),
+        "holdingsAdded": holdings_sync.get("added") or [],
+        "holdingsRemoved": holdings_sync.get("removed") or [],
     }
     (data_dir / "meta.json").write_text(
         json.dumps(meta, indent=2) + "\n", encoding="utf-8"
