@@ -344,6 +344,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .ticker-sym { color: var(--ft-gold); font-weight: 700; }
 .ticker-up { color: #6ee7a0; }
 .ticker-down { color: #ff8f8f; }
+.ticker-flat { color: var(--color-muted); }
 
 .ticker-item.has-neg .ticker-sym::after {
   content: "\25CF";
@@ -485,6 +486,12 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .banner.info {
   border-color: var(--color-line);
   border-left-color: var(--ft-orange);
+  color: var(--color-fg);
+}
+
+.banner.holdings {
+  border-color: var(--ft-navy);
+  border-left-color: var(--ft-gold);
   color: var(--color-fg);
 }
 
