@@ -77,6 +77,41 @@ class Holding:
         return re.sub(r"\s+", " ", name).strip(" ,")
 
     @property
+    def name_tokens(self) -> list[str]:
+        """Significant tokens from the company name for relevance checks."""
+        stop = {
+            "the",
+            "and",
+            "of",
+            "for",
+            "inc",
+            "corp",
+            "corporation",
+            "incorporated",
+            "company",
+            "co",
+            "ltd",
+            "group",
+            "holdings",
+            "holding",
+            "technologies",
+            "technology",
+            "systems",
+            "solutions",
+            "international",
+            "america",
+            "american",
+        }
+        toks = re.findall(r"[A-Za-z][A-Za-z0-9&.-]{1,}", self.clean_name)
+        out: list[str] = []
+        for tok in toks:
+            low = tok.lower().rstrip(".")
+            if low in stop or len(low) < 3:
+                continue
+            out.append(low)
+        return out
+
+    @property
     def search_query(self) -> str:
         """Google News query biased toward the company, not bare ticker words."""
         name = self.clean_name

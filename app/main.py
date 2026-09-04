@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
 
 from app.holdings import load_holdings
 from app.payload import alerts_csv_text, build_dashboard_payload, clear_payload_cache
@@ -15,9 +17,13 @@ from app.stocks import fetch_stocks
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+_DOCS_DISABLED = os.getenv("ENV") == "production" or os.getenv("XPND_DISABLE_DOCS") == "1"
+
 app = FastAPI(
     title="XPND News Dashboard",
     description="Drudge-style news dashboard for First Trust Expanded Technology ETF (XPND)",
+    docs_url=None if _DOCS_DISABLED else "/docs",
+    redoc_url=None if _DOCS_DISABLED else "/redoc",
 )
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
@@ -80,4 +86,10 @@ async def api_alerts_csv():
 @app.post("/api/refresh")
 async def api_refresh():
     clear_payload_cache()
-    return {"ok": True, "message": "Cache cleared"}
+    body = {
+        "ok": True,
+        "message": "News and quote caches cleared",
+    }
+    if _DOCS_DISABLED:
+        body["docs"] = "disabled"
+    return body

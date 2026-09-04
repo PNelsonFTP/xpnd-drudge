@@ -19,15 +19,15 @@
           <span class="tagline" id="tagline">expanded technology etf · loading</span>
         </button>
         <div class="toolbar">
-          <button type="button" class="tool-btn" id="btn-bookmarks" aria-label="Bookmarks">★ <span data-count="bookmarks">0</span></button>
-          <button type="button" class="tool-btn" id="btn-queue" aria-label="Read later queue">⏷ <span data-count="queue">0</span></button>
-          <button type="button" class="tool-btn" id="btn-mutes" aria-label="Manage mutes">✕ <span data-count="mutes">0</span></button>
+          <button type="button" class="tool-btn" id="btn-bookmarks" aria-label="Bookmarks">★ <span class="tool-label">Bookmarks</span> <span data-count="bookmarks">0</span></button>
+          <button type="button" class="tool-btn" id="btn-queue" aria-label="Read later">⏷ <span class="tool-label">Later</span> <span data-count="queue">0</span></button>
+          <button type="button" class="tool-btn" id="btn-mutes" aria-label="Manage mutes">Mutes <span data-count="mutes">0</span></button>
           <span class="tool-sep" aria-hidden="true"></span>
           <button type="button" class="tool-btn" id="btn-digest" aria-label="Copy risk digest">COPY DIGEST</button>
           <button type="button" class="tool-btn" id="btn-csv" aria-label="Download alerts CSV">CSV</button>
           <button type="button" class="tool-btn" id="btn-help" aria-label="Keyboard shortcuts">?</button>
-          <button type="button" class="tool-btn" id="btn-refresh" aria-label="Refresh news">↻ <span id="refresh-countdown"></span></button>
-          <button type="button" class="tool-btn" id="btn-theme" aria-label="Toggle theme">DARK</button>
+          <button type="button" class="tool-btn" id="btn-refresh" aria-label="Refresh news" title="Refresh news">↻ <span class="tool-label" id="refresh-label">Refresh news</span> <span id="refresh-countdown"></span></button>
+          <button type="button" class="tool-btn" id="btn-theme" aria-label="Theme: light. Switch to dark." title="Currently light. Click to switch.">Light</button>
         </div>
       </div>
 
@@ -64,7 +64,7 @@
       </div>
     </header>
 
-    <div id="ticker" class="ticker-bar" hidden></div>
+    <div id="ticker" class="ticker-bar" hidden role="region" aria-label="XPND quotes"></div>
     <div id="summary" class="summary-bar" hidden></div>
     <nav id="index-strip" class="index-strip" aria-label="Jump to company" hidden></nav>
   </div>
@@ -102,8 +102,8 @@
 
   <footer class="site-footer">
     <span id="footer-left">
-      XPND DRUDGE — portfolio news for the First Trust Expanded Technology ETF ·
-      <a href="https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=XPND" target="_blank" rel="noopener">holdings source</a>
+      XPND DRUDGE is an unofficial desk tool, not an official First Trust product, not investment advice. Headlines are third-party.
+      · <a href="https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=XPND" target="_blank" rel="noopener">holdings source</a>
     </span>
     <span id="footer-right"></span>
   </footer>
@@ -132,7 +132,7 @@
       </header>
       <div class="modal-body">
         <div class="kbd-row"><kbd>/</kbd><span>focus search</span></div>
-        <div class="kbd-row"><kbd>r</kbd><span>refresh headlines</span></div>
+        <div class="kbd-row"><kbd>r</kbd><span id="help-refresh">refresh headlines</span></div>
         <div class="kbd-row"><kbd>t</kbd><span>toggle dark / light</span></div>
         <div class="kbd-row"><kbd>n</kbd><span>negative headlines only</span></div>
         <div class="kbd-row"><kbd>h</kbd><span>last 24 hours only</span></div>

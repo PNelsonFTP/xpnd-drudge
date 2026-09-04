@@ -42,7 +42,9 @@ cd site && python3 -m http.server 8088
 
 Open [http://127.0.0.1:8088](http://127.0.0.1:8088).
 
-Production static deploys hourly via [.github/workflows/refresh-pages.yml](.github/workflows/refresh-pages.yml). Manual rebuild: **Actions → Refresh static site and deploy Pages → Run workflow**.
+Production static deploys hourly via [.github/workflows/refresh-pages.yml](.github/workflows/refresh-pages.yml) (quality gate: 40–60 companies, ≥100 headlines, quote coverage floors). Manual rebuild: **Actions → Refresh static site and deploy Pages → Run workflow**.
+
+Pull requests that touch `app/`, `tests/`, or `scripts/` run unit tests via [.github/workflows/ci.yml](.github/workflows/ci.yml) (no scrape, no Pages deploy).
 
 ## Deploy live server (optional)
 
@@ -144,7 +146,9 @@ scripts/
   build_static_data.py       # static snapshot builder
   update_holdings.py
 docs/                        # LIVE / STATIC / ARCHITECTURE
-.github/workflows/refresh-pages.yml
+.github/workflows/
+  ci.yml                     # PR / main unit tests (no scrape)
+  refresh-pages.yml          # hourly holdings + news snapshot + Pages
 ```
 
 ## Documentation

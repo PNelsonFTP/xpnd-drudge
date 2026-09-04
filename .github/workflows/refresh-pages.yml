@@ -22,8 +22,8 @@ permissions:
   id-token: write
 
 concurrency:
-  group: refresh-pages
-  cancel-in-progress: true
+  group: refresh-pages-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name != 'schedule' }}
 
 jobs:
   build-and-deploy:
@@ -119,21 +119,58 @@ jobs:
 
           company_count = int(data.get("company_count") or 0)
           headline_count = int(data.get("headline_count") or 0)
-          if company_count < 40:
-              fail(f"company_count={company_count} < 40")
-          if headline_count < 1:
-              fail("no headlines")
+          if company_count < 40 or company_count > 60:
+              fail(f"company_count={company_count} not in 40–60")
+          if headline_count < 100:
+              fail(f"headline_count={headline_count} < 100")
+
+          coverage = data.get("coverage") or {}
+          missing_n = 0
+          if coverage:
+              quote_coverage = coverage.get("quoteCoverage")
+              if quote_coverage is not None and float(quote_coverage) < 0.80:
+                  fail(f"quoteCoverage={quote_coverage} < 0.80")
+              missing = coverage.get("missingNews") or []
+              missing_n = (
+                  len(missing) if isinstance(missing, list) else int(missing or 0)
+              )
+              if (
+                  missing_n > 10
+                  and company_count
+                  and missing_n / company_count > 0.20
+              ):
+                  fail(
+                      f"missingNews={missing_n} "
+                      f"({missing_n / company_count:.0%} of {company_count})"
+                  )
 
           sync = data.get("holdingsSync") or {}
+          meta = {}
+          meta_path = Path("site/data/meta.json")
+          if meta_path.exists():
+              meta = json.loads(meta_path.read_text())
+          holdings_as_of = sync.get("asOf") or meta.get("holdingsAsOf")
+          if not holdings_as_of:
+              print("WARN: holdingsAsOf missing from holdingsSync.asOf and meta")
+              if company_count < 40:
+                  fail("holdingsAsOf missing and company_count < 40")
+
           if sync.get("rebalanceDetected"):
               print(
                   "NOTE: reconstitution flagged — "
                   f"added={sync.get('added')} removed={sync.get('removed')}"
               )
+          extra = ""
+          if coverage:
+              extra = (
+                  f", quoteCoverage={coverage.get('quoteCoverage')} "
+                  f"missingNews={missing_n}"
+              )
           print(
               f"OK: {company_count} companies, "
               f"{headline_count} headlines, "
               f"{data.get('negative_total')} negative"
+              f"{extra}"
           )
           PY
 

@@ -34,7 +34,7 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 web: uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
 ```
 
-Connect this GitHub repo as a **Web Service**, build with `pip install -r requirements.txt`, start via Procfile.
+Connect this GitHub repo as a **Web Service**, build with `pip install -r requirements.txt`, start via Procfile. Set `ENV=production` (or `XPND_DISABLE_DOCS=1`) so `/docs` and `/redoc` are off.
 
 ## Update holdings
 
@@ -59,7 +59,15 @@ Scrapes the official First Trust XPND holdings page into `data/holdings.csv` and
 - News feed cache: ~15 minutes (see `app/news.py`)
 - Assembled payload: 60 seconds (`PAYLOAD_CACHE_SECONDS`)
 - Quotes: ~10 minutes (`app/stocks.py`)
-- `POST /api/refresh` or `?refresh=true` clears caches
+- `POST /api/refresh` or `?refresh=true` clears **news + quotes** (and the assembled payload)
+
+## OpenAPI docs
+
+`/docs` and `/redoc` stay enabled locally. They are turned off when `ENV=production` or `XPND_DISABLE_DOCS=1`. `/api/refresh` notes `docs: disabled` in that case.
+
+## CI
+
+Pull requests and pushes to `main` that touch `app/**`, `tests/**`, or `scripts/**` run unit tests via [`.github/workflows/ci.yml`](../.github/workflows/ci.yml) (Python 3.12, no scrape, no Pages deploy). Failures are hard-fail.
 
 ## Do not remove
 

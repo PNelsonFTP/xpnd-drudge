@@ -33,9 +33,14 @@ HEADERS = {
 
 # In-memory cache: ticker -> (expires_epoch, articles)
 _CACHE: dict[str, tuple[float, list["Article"]]] = {}
+# ticker -> "ok" | "empty" | "error" from the last live fetch
+_FEED_STATS: dict[str, str] = {}
 DEFAULT_CACHE_SECONDS = 15 * 60
+ERROR_CACHE_SECONDS = 90
 DEFAULT_PER_COMPANY = 10
 MAX_WORKERS = 10
+# Drop week-old filler after scoring; elevated/severe may stay within the window.
+MAX_PANEL_AGE_HOURS = 7 * 24
 
 # Titles this similar are treated as the same story from different outlets.
 GROUPING_THRESHOLD = 0.55
@@ -51,6 +56,15 @@ JUNK_TITLE_PATTERNS = [
     r"\bstock price quote\b",
     r"\boption(?:s)? chain\b",
     r"\bmessage board\b",
+    # Tokenized-stock converters / FX quote terminals
+    r"\btokenized\s+stocks?\b",
+    r"\bxstock\b",
+    r"price today\s*\|",
+    r"live .{0,40} to (?:gbp|usd|eur)\b",
+    r"\|Price:\s*[\d.]+",
+    r"\|Chg%:",
+    r"\bPrice:\s*[\d.]+\s*\|",
+    r"\b[A-Z]{1,6}\|[A-Za-z][^|]{0,40}\|Price:",
 ]
 
 # Real filings, but 13F/ownership chatter buries actual company news.
@@ -65,6 +79,16 @@ LOW_VALUE_PATTERNS = [
     r"\bshort interest\b",
     r"\binsider (?:selling|buying|transaction)\b",
     r"\b13[fF]\b",
+    # MarketBeat / Stock Titan 13F wallpaper
+    r"\bpurchases? new (?:position|holdings?)\b",
+    r"\bmakes? new \$[\d.,]+\s*(?:million|billion)?\s+investment\b",
+    r"\b(?:decreases?|increases?)\s+(?:its\s+)?(?:position|holdings?|stake)\b",
+    r"\b(?:stock )?position\s+(?:increased|reduced|boosted|lowered|lifted|decreased)\b",
+    r"\b(?:officer|director|ceo|cfo|coo|insider)s?\s+sells?\s+\$",
+    r"\b(?:officer|director|ceo|cfo|coo|insider)s?\s+sells?\s+[\d,]+\s+shares\b",
+    r"\b(?:officer|director|ceo|cfo|coo)\b.{0,40}\bsells?\b.{0,25}(?:\$|shares)",
+    r"\binsider sold shares worth\b",
+    r"\bform\s*-?\s*4\b",
 ]
 
 _JUNK = [re.compile(p, re.I) for p in JUNK_TITLE_PATTERNS]
@@ -96,6 +120,30 @@ def severity_label(score: int) -> str:
     if score >= 1:
         return "watch"
     return "none"
+
+
+def title_relevant(title: str, holding: Holding) -> bool:
+    """Drop cross-ticker / macro bleed that Google attached to this query."""
+    if not title:
+        return False
+    t = title.lower()
+    ticker = holding.ticker
+    # Cashtag always counts ($ON, $APP) even for ambiguous English-word tickers.
+    if f"${ticker.lower()}" in t:
+        return True
+    # Ticker as a symbol — keep case so "on" / "App" are not treated as ON / APP.
+    if re.search(rf"(?<![A-Za-z]){re.escape(ticker)}(?![A-Za-z])", title):
+        return True
+    tokens = holding.name_tokens
+    hits = [tok for tok in tokens if tok in t]
+    if any(len(h) >= 5 for h in hits):
+        return True
+    if len(hits) >= 2:
+        return True
+    parts = holding.clean_name.lower().split()
+    if len(parts) >= 2 and " ".join(parts[:2]) in t:
+        return True
+    return False
 
 
 @dataclass
@@ -175,14 +223,28 @@ class CompanyNews:
 
 
 def _unwrap_google_link(link: str) -> str:
-    """Best-effort unwrap of Google News redirect URLs."""
+    """Best-effort unwrap of Google News / google.com/url redirect URLs."""
     try:
         parsed = urlparse(link)
-        if "news.google.com" not in parsed.netloc:
+        host = (parsed.netloc or "").lower()
+        if "google." not in host:
             return link
         qs = parse_qs(parsed.query)
-        if "url" in qs:
-            return unquote(qs["url"][0])
+        for key in ("url", "q", "u"):
+            vals = qs.get(key) or []
+            if not vals:
+                continue
+            candidate = unquote(vals[0])
+            if candidate.startswith("http"):
+                return candidate
+        if parsed.fragment:
+            fqs = parse_qs(parsed.fragment)
+            for key in ("url", "q"):
+                vals = fqs.get(key) or []
+                if vals:
+                    candidate = unquote(vals[0])
+                    if candidate.startswith("http"):
+                        return candidate
     except Exception:  # noqa: BLE001
         pass
     return link
@@ -249,7 +311,11 @@ def _jaccard(a: set[str], b: set[str]) -> float:
 
 
 def group_articles(articles: list[Article]) -> list[Article]:
-    """Collapse the same story from multiple outlets into one row with +N src."""
+    """Collapse the same story from multiple outlets into one row with +N src.
+
+    Related outlets attach as sources. The primary title keeps its own score —
+    a harsher rewrite from another site must not inflate a milder headline.
+    """
     kept: list[Article] = []
     token_cache: list[set[str]] = []
 
@@ -273,12 +339,25 @@ def group_articles(articles: list[Article]) -> list[Article]:
                         source=art.source, link=art.link, published=art.published
                     )
                 )
-        # Coverage by multiple outlets is itself a signal; keep the harshest read.
-        if art.negative_score > primary.negative_score:
-            primary.negative_score = art.negative_score
-            primary.negative = art.negative_score >= 1
-            primary.severity = severity_label(art.negative_score)
     return kept
+
+
+def last_feed_stats() -> dict[str, str]:
+    """Per-ticker fetch outcome from the most recent live pull."""
+    return dict(_FEED_STATS)
+
+
+def news_coverage(company_news: list[CompanyNews]) -> dict:
+    """Summarize missing / failed / empty feeds for the last news pull."""
+    missing = [c.ticker for c in company_news if not c.articles]
+    failures = [t for t, status in _FEED_STATS.items() if status == "error"]
+    empty = [t for t, status in _FEED_STATS.items() if status == "empty"]
+    return {
+        "missingNews": missing,
+        "feedFailures": failures,
+        "emptyFeeds": empty,
+        "articleCount": sum(len(c.articles) for c in company_news),
+    }
 
 
 def fetch_company_articles(
@@ -289,14 +368,20 @@ def fetch_company_articles(
     now = time.time()
     cached = _CACHE.get(holding.ticker)
     if cached and cached[0] > now:
-        return cached[1][:limit]
+        arts = cached[1][:limit]
+        _FEED_STATS.setdefault(
+            holding.ticker, "ok" if arts else "empty"
+        )
+        return arts
 
-    query = quote_plus(holding.search_query)
+    query = quote_plus(f"{holding.search_query} when:7d")
     url = GOOGLE_NEWS_RSS.format(query=query)
+    ok = False
     try:
         resp = requests.get(url, headers=HEADERS, timeout=20)
         resp.raise_for_status()
         feed = feedparser.parse(resp.content)
+        ok = True
     except Exception:  # noqa: BLE001
         feed = feedparser.parse("")
 
@@ -309,6 +394,8 @@ def fetch_company_articles(
         title = _clean_title(getattr(entry, "title", ""), source)
         if not title or is_junk(title):
             continue
+        if not title_relevant(title, holding):
+            continue
         link = _unwrap_google_link(getattr(entry, "link", "") or "")
         key = hashlib.md5(title.lower().encode()).hexdigest()
         if key in seen:
@@ -316,7 +403,12 @@ def fetch_company_articles(
         seen.add(key)
 
         published = _parse_date(entry)
+        age = _age_hours(published)
         neg_score = score_negative(title)
+        sev = severity_label(neg_score)
+        # Age-out stale filler; keep elevated/severe through the 7d window.
+        if age is not None and age > MAX_PANEL_AGE_HOURS and sev in ("none", "watch"):
+            continue
         articles.append(
             Article(
                 id=_article_id(holding.ticker, title, link),
@@ -327,8 +419,8 @@ def fetch_company_articles(
                 published_display=_format_date(published),
                 negative=neg_score >= 1,
                 negative_score=neg_score,
-                severity=severity_label(neg_score),
-                age_hours=_age_hours(published),
+                severity=sev,
+                age_hours=age,
                 ticker=holding.ticker,
                 low_value=is_low_value(title),
             )
@@ -345,7 +437,16 @@ def fetch_company_articles(
         reverse=True,
     )
     articles = group_articles(articles)[:limit]
-    _CACHE[holding.ticker] = (now + cache_seconds, articles)
+    if not ok:
+        ttl = min(ERROR_CACHE_SECONDS, cache_seconds)
+        _FEED_STATS[holding.ticker] = "error"
+    elif not articles:
+        ttl = min(ERROR_CACHE_SECONDS, cache_seconds)
+        _FEED_STATS[holding.ticker] = "empty"
+    else:
+        ttl = cache_seconds
+        _FEED_STATS[holding.ticker] = "ok"
+    _CACHE[holding.ticker] = (now + ttl, articles)
     return articles
 
 
@@ -355,6 +456,7 @@ def fetch_all_news(
     cache_seconds: int = DEFAULT_CACHE_SECONDS,
 ) -> list[CompanyNews]:
     results: dict[str, CompanyNews] = {}
+    _FEED_STATS.clear()
 
     def work(h: Holding) -> CompanyNews:
         arts = fetch_company_articles(h, limit=per_company, cache_seconds=cache_seconds)
@@ -380,8 +482,15 @@ def fetch_all_news(
     return [results[h.ticker] for h in holdings if h.ticker in results]
 
 
-def collect_alerts(company_news: list[CompanyNews], limit: int = 20) -> list[dict]:
-    """Portfolio-wide negative headlines, newest first."""
+def collect_alerts(
+    company_news: list[CompanyNews],
+    limit: int = 30,
+    lead: Optional[dict] = None,
+) -> list[dict]:
+    """Portfolio-wide negative headlines.
+
+    Prefer elevated/severe (and the lead if it is negative), then watch.
+    """
     alerts: list[dict] = []
     for cn in company_news:
         for art in cn.articles:
@@ -403,12 +512,58 @@ def collect_alerts(company_news: list[CompanyNews], limit: int = 20) -> list[dic
                     "negative": True,
                 }
             )
-    alerts.sort(
-        key=lambda a: (a["published"] or "", a["negative_score"]),
-        reverse=True,
-    )
-    return alerts[:limit]
+
+    if lead and lead.get("negative") and lead.get("id"):
+        if not any(a["id"] == lead["id"] for a in alerts):
+            alerts.append(
+                {
+                    "id": lead["id"],
+                    "ticker": lead.get("ticker", ""),
+                    "company_name": lead.get("company_name", ""),
+                    "title": lead.get("title", ""),
+                    "link": lead.get("link", ""),
+                    "source": lead.get("source", ""),
+                    "published": lead.get("published"),
+                    "published_display": lead.get("published_display", ""),
+                    "negative_score": lead.get("negative_score", 1),
+                    "severity": lead.get("severity", "watch"),
+                    "related_count": len(lead.get("related") or []),
+                    "negative": True,
+                }
+            )
+
+    sev_rank = {"severe": 3, "elevated": 2, "watch": 1, "none": 0}
+
+    def sort_key(a: dict) -> tuple:
+        return (
+            sev_rank.get(a.get("severity", "watch"), 0),
+            a.get("negative_score", 0),
+            a.get("published") or "",
+        )
+
+    must = [a for a in alerts if a.get("severity") in ("severe", "elevated")]
+    if lead and lead.get("negative") and lead.get("id"):
+        must_ids = {a["id"] for a in must}
+        for a in alerts:
+            if a["id"] == lead["id"] and a["id"] not in must_ids:
+                must.append(a)
+                break
+    rest = [a for a in alerts if a["id"] not in {m["id"] for m in must}]
+    must.sort(key=sort_key, reverse=True)
+    rest.sort(key=sort_key, reverse=True)
+    merged = must + rest
+    out: list[dict] = []
+    seen: set[str] = set()
+    for a in merged:
+        if a["id"] in seen:
+            continue
+        seen.add(a["id"])
+        out.append(a)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def clear_cache() -> None:
     _CACHE.clear()
+    _FEED_STATS.clear()

@@ -9,7 +9,12 @@ from datetime import datetime, timezone
 
 from app.brief import build_brief, build_latest, build_trending, pick_lead
 from app.holdings import load_holdings, load_holdings_meta
-from app.news import clear_cache, collect_alerts, fetch_all_news
+from app.news import (
+    clear_cache,
+    collect_alerts,
+    fetch_all_news,
+    news_coverage,
+)
 from app.stocks import clear_cache as clear_stocks_cache
 from app.stocks import fetch_stocks, portfolio_stats
 
@@ -45,22 +50,37 @@ def build_dashboard_payload(
 
     holdings = load_holdings()
     company_news = fetch_all_news(holdings, per_company=per_company)
-    alerts = collect_alerts(company_news, limit=20)
+    alerts = collect_alerts(company_news, limit=30)
     lead = pick_lead(company_news)
     trending = build_trending(alerts)
     latest = build_latest(company_news, limit=15)
     brief = build_brief(company_news, lead=lead, alerts=alerts)
     quotes = fetch_stocks(holdings)
+    quotes_as_of = datetime.now(timezone.utc).isoformat()
+    portfolio = portfolio_stats(holdings, quotes)
 
     sectors = sorted({c.classification for c in company_news if c.classification})
     severe = sum(
-        1 for c in company_news for a in c.articles if a.severity == "severe"
+        1
+        for c in company_news
+        for a in c.articles
+        if a.severity == "severe" and not a.low_value
     )
+    company_count = len(holdings)
+    covered = int(portfolio.get("covered") or 0)
+    quote_coverage = (covered / company_count) if company_count else 0.0
+    coverage = {
+        **news_coverage(company_news),
+        "quoteCoverage": round(quote_coverage, 4),
+        "quotesAsOf": quotes_as_of,
+        "quoteOutliers": portfolio.get("quoteOutliers", 0),
+    }
 
     payload = {
         "mode": mode,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
-        "company_count": len(holdings),
+        "quotesAsOf": quotes_as_of,
+        "company_count": company_count,
         "negative_total": sum(c.negative_count for c in company_news),
         "severe_total": severe,
         "headline_count": sum(len(c.articles) for c in company_news),
@@ -72,7 +92,8 @@ def build_dashboard_payload(
         "latest": latest,
         "alerts": alerts,
         "stocks": quotes,
-        "portfolio": portfolio_stats(holdings, quotes),
+        "portfolio": portfolio,
+        "coverage": coverage,
         "holdingsSync": load_holdings_meta(),
         "companies": [c.to_dict() for c in company_news],
     }

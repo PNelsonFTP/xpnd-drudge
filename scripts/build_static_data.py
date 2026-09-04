@@ -63,8 +63,8 @@ def write_index(site_dir: Path, base_path: str) -> None:
     html = html.replace(live_config, static_config)
 
     html = html.replace(
-        '<div class="kbd-row"><kbd>r</kbd><span>refresh headlines</span></div>',
-        '<div class="kbd-row"><kbd>r</kbd><span>reload published snapshot</span></div>',
+        '<div class="kbd-row"><kbd>r</kbd><span id="help-refresh">refresh headlines</span></div>',
+        '<div class="kbd-row"><kbd>r</kbd><span id="help-refresh">reload published snapshot</span></div>',
     )
     html = html.replace(
         "XPND DRUDGE — portfolio news for the First Trust Expanded Technology ETF ·",
@@ -108,6 +108,7 @@ def main() -> int:
     alerts_path.write_text(alerts_csv_text(payload), encoding="utf-8")
 
     holdings_sync = payload.get("holdingsSync") or {}
+    coverage = payload.get("coverage") or {}
     meta = {
         "mode": "static",
         "generatedAt": payload["generatedAt"],
@@ -123,6 +124,14 @@ def main() -> int:
         "holdingsAdded": holdings_sync.get("added") or [],
         "holdingsRemoved": holdings_sync.get("removed") or [],
     }
+    if coverage:
+        missing = coverage.get("missingNews") or []
+        meta["missingNews"] = len(missing) if isinstance(missing, list) else int(missing or 0)
+        if "quoteCoverage" in coverage:
+            meta["quoteCoverage"] = coverage.get("quoteCoverage")
+        quotes_as_of = coverage.get("quotesAsOf") or payload.get("quotesAsOf")
+        if quotes_as_of:
+            meta["quotesAsOf"] = quotes_as_of
     (data_dir / "meta.json").write_text(
         json.dumps(meta, indent=2) + "\n", encoding="utf-8"
     )
