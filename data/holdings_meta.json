@@ -1,0 +1,88 @@
+{
+  "sourceUrl": "https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=XPND",
+  "syncedAt": "2026-09-04T19:58:59.635152+00:00",
+  "asOf": "2026-09-03",
+  "equityCount": 50,
+  "previousCount": 50,
+  "added": [
+    "CPAY",
+    "CRM",
+    "GEN",
+    "GWRE",
+    "HPE",
+    "MSFT",
+    "NOW",
+    "SNX",
+    "WDAY",
+    "ZBRA"
+  ],
+  "removed": [
+    "ADI",
+    "FOXA",
+    "ORCL",
+    "PTC",
+    "RMBS",
+    "ROKU",
+    "SNPS",
+    "TKO",
+    "TMUS",
+    "WMG"
+  ],
+  "weightChanges": [
+    {
+      "ticker": "AMAT",
+      "from": 5.8,
+      "to": 4.33,
+      "delta": -1.47
+    },
+    {
+      "ticker": "MA",
+      "from": 5.32,
+      "to": 4.53,
+      "delta": -0.79
+    },
+    {
+      "ticker": "V",
+      "from": 5.3,
+      "to": 4.55,
+      "delta": -0.75
+    },
+    {
+      "ticker": "MPWR",
+      "from": 0.95,
+      "to": 0.24,
+      "delta": -0.71
+    },
+    {
+      "ticker": "NFLX",
+      "from": 3.96,
+      "to": 4.65,
+      "delta": 0.69
+    },
+    {
+      "ticker": "PLTR",
+      "from": 3.82,
+      "to": 4.46,
+      "delta": 0.64
+    },
+    {
+      "ticker": "KLAC",
+      "from": 4.0,
+      "to": 3.39,
+      "delta": -0.61
+    },
+    {
+      "ticker": "CIEN",
+      "from": 0.8,
+      "to": 0.21,
+      "delta": -0.59
+    },
+    {
+      "ticker": "GOOGL",
+      "from": 4.09,
+      "to": 4.6,
+      "delta": 0.51
+    }
+  ],
+  "rebalanceDetected": true
+}

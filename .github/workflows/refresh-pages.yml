@@ -11,6 +11,8 @@ on:
       - "app/**"
       - "data/**"
       - "scripts/build_static_data.py"
+      - "scripts/update_holdings.py"
+      - "tests/**"
       - "requirements.txt"
       - ".github/workflows/refresh-pages.yml"
 
@@ -26,6 +28,7 @@ concurrency:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -42,6 +45,50 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Sync holdings from First Trust
+        continue-on-error: true
+        run: |
+          python scripts/update_holdings.py
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          def load_head_meta() -> dict:
+              try:
+                  raw = subprocess.check_output(
+                      ["git", "show", "HEAD:data/holdings_meta.json"],
+                      text=True,
+                  )
+                  return json.loads(raw)
+              except Exception:
+                  return {}
+
+          meta_path = Path("data/holdings_meta.json")
+          if not meta_path.exists():
+              print("No holdings meta written; not staging holdings files.")
+              raise SystemExit(0)
+          meta = json.loads(meta_path.read_text())
+          old = load_head_meta()
+          changed = (
+              not old
+              or bool(meta.get("rebalanceDetected"))
+              or meta.get("asOf") != old.get("asOf")
+              or set(meta.get("added") or [])
+              or set(meta.get("removed") or [])
+          )
+          if changed:
+              subprocess.check_call(
+                  ["git", "add", "data/holdings.csv", "data/holdings_meta.json"]
+              )
+              print("Staged holdings CSV/meta (membership or as-of changed).")
+          else:
+              print("Weight-only drift; using fresh CSV for this build, not committing it.")
+          PY
+
       - name: Build static snapshot
         run: python scripts/build_static_data.py --base-path /xpnd-drudge/
 
@@ -50,19 +97,43 @@ jobs:
           python - <<'PY'
           import json, sys
           from pathlib import Path
+
+          def fail(msg: str) -> None:
+              print(f"FAIL: {msg}", file=sys.stderr)
+              sys.exit(1)
+
           p = Path("site/data/dashboard.json")
-          assert p.exists(), "missing dashboard.json"
+          if not p.exists():
+              fail("missing dashboard.json")
           data = json.loads(p.read_text())
-          assert data.get("mode") == "static"
-          assert data.get("company_count", 0) >= 1, "no companies"
-          assert data.get("headline_count", 0) >= 1, "no headlines"
-          assert Path("site/index.html").exists()
-          assert Path("site/static/app.js").exists()
-          assert Path("site/data/alerts.csv").exists()
+          if data.get("mode") != "static":
+              fail(f"mode={data.get('mode')!r}, expected 'static'")
+          for path in (
+              Path("site/index.html"),
+              Path("site/static/app.js"),
+              Path("site/data/alerts.csv"),
+              Path("data/holdings.csv"),
+          ):
+              if not path.exists():
+                  fail(f"missing {path}")
+
+          company_count = int(data.get("company_count") or 0)
+          headline_count = int(data.get("headline_count") or 0)
+          if company_count < 40:
+              fail(f"company_count={company_count} < 40")
+          if headline_count < 1:
+              fail("no headlines")
+
+          sync = data.get("holdingsSync") or {}
+          if sync.get("rebalanceDetected"):
+              print(
+                  "NOTE: reconstitution flagged — "
+                  f"added={sync.get('added')} removed={sync.get('removed')}"
+              )
           print(
-              f"OK: {data['company_count']} companies, "
-              f"{data['headline_count']} headlines, "
-              f"{data['negative_total']} negative"
+              f"OK: {company_count} companies, "
+              f"{headline_count} headlines, "
+              f"{data.get('negative_total')} negative"
           )
           PY
 
@@ -70,12 +141,12 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [[ -n "$(git status --porcelain site/)" ]]; then
-            git add site/
+          if [[ -n "$(git status --porcelain site/ data/holdings.csv data/holdings_meta.json)" ]]; then
+            git add site/ data/holdings.csv data/holdings_meta.json
             git commit -m "chore(data): refresh static snapshot $(date -u +%FT%TZ)"
             git push
           else
-            echo "No site/ changes to commit."
+            echo "No site/ or holdings changes to commit."
           fi
 
       - name: Upload Pages artifact

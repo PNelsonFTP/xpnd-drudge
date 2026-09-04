@@ -17,7 +17,11 @@ Both share:
 - UI: `app/static/*` (copied into `site/static/` at build time)
 
 ```
-                    data/holdings.csv
+        First Trust XPND holdings page
+                           │
+                scripts/update_holdings.py
+                           │
+              data/holdings.csv + holdings_meta.json
                            │
               ┌────────────┴────────────┐
               ▼                         ▼
@@ -56,6 +60,7 @@ This is the same architecture lesson documented in AI Drudge / Cyber Drudge.
 | `alerts[]` | Negative digest / CSV source |
 | `stocks`, `portfolio` | Quotes + weighted day move |
 | `sectors[]` | Filter dropdown |
+| `holdingsSync` | Official-universe sync: as-of, added, removed, reconstitution flag |
 
 Client config (`window.XPND_CONFIG`) switches data/CSV URLs and refresh UX.
 

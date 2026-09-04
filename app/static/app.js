@@ -173,6 +173,54 @@
   const isNew = (iso) => ageHours(iso) <= NEW_HOURS;
   const isStale = (iso) => ageHours(iso) > STALE_HOURS;
 
+  function holdingsSync(data) {
+    return (data && data.holdingsSync) || {};
+  }
+
+  function holdingsAsOfLabel(data) {
+    const sync = holdingsSync(data);
+    const raw = sync.asOf || sync.syncedAt;
+    if (!raw) return "";
+    const d = new Date(raw.length <= 10 ? `${raw}T12:00:00Z` : raw);
+    if (Number.isNaN(d.getTime())) return String(raw);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function formatTickerList(tickers, limit = 8) {
+    const list = (tickers || []).filter(Boolean);
+    if (!list.length) return "";
+    if (list.length <= limit) return list.join(", ");
+    return `${list.slice(0, limit).join(", ")} +${list.length - limit} more`;
+  }
+
+  function isQuoteOutlier(q) {
+    return Boolean(q && (q.outlier || Math.abs(Number(q.changePct) || 0) >= 15));
+  }
+
+  function quoteMove(q) {
+    if (!q || isQuoteOutlier(q)) return 0;
+    return Math.abs(Number(q.changePct) || 0);
+  }
+
+  function quotePctHTML(q, kind) {
+    if (!q) return "";
+    if (isQuoteOutlier(q)) {
+      return kind === "ticker"
+        ? `<span class="ticker-flat" title="Split or bad prior close — excluded from day move">quote check</span>`
+        : `<span title="Split or bad prior close — excluded from day move">quote check</span>`;
+    }
+    const up = q.changePct >= 0;
+    const cls = kind === "ticker" ? (up ? "ticker-up" : "ticker-down") : "";
+    const body = `${up ? "▲" : "▼"}${Math.abs(q.changePct).toFixed(2)}%`;
+    return cls ? `<span class="${cls}">${body}</span>` : body;
+  }
+
+  function taglineText(data) {
+    const asOf = holdingsAsOfLabel(data);
+    const asOfBit = asOf ? ` · holdings ${asOf}` : "";
+    return `expanded technology etf · ${data.company_count} holdings${asOfBit} · updated ${timeAgo(data.generatedAt)}`;
+  }
+
   function esc(s) {
     return String(s ?? "")
       .replace(/&/g, "&amp;")
@@ -321,7 +369,7 @@
           Math.max(0, ...a.articles.map((x) => x.negative_score || 0)) ||
         b.weighting - a.weighting,
       move: (a, b) =>
-        Math.abs(quotes[b.ticker]?.changePct ?? 0) - Math.abs(quotes[a.ticker]?.changePct ?? 0),
+        quoteMove(quotes[b.ticker]) - quoteMove(quotes[a.ticker]),
     };
     return [...visible].sort(sorters[state.sort] || sorters.weight);
   }
@@ -348,12 +396,11 @@
     el.ticker.hidden = false;
     el.ticker.innerHTML = entries
       .map(([sym, q]) => {
-        const up = q.changePct >= 0;
         const neg = (negByTicker.get(sym) || 0) > 0;
         return `<a class="ticker-item${neg ? " has-neg" : ""}" href="#${esc(sym)}" data-jump="${esc(sym)}" title="${neg ? "has negative headlines" : ""}">
           <span class="ticker-sym">${esc(sym)}</span>
           <span>$${Number(q.price).toFixed(2)}</span>
-          <span class="${up ? "ticker-up" : "ticker-down"}">${up ? "▲" : "▼"}${Math.abs(q.changePct).toFixed(2)}%</span>
+          ${quotePctHTML(q, "ticker")}
         </a>`;
       })
       .join("");
@@ -367,9 +414,11 @@
       <span class="summary-item ${wc >= 0 ? "up" : "down"}">weighted day move <strong>${wc >= 0 ? "+" : ""}${wc.toFixed(2)}%</strong></span>
       <span class="summary-item up">gainers <strong>${p.gainers ?? 0}</strong></span>
       <span class="summary-item down">losers <strong>${p.losers ?? 0}</strong></span>
+      ${p.quoteOutliers ? `<span class="summary-item">quote check <strong>${p.quoteOutliers}</strong></span>` : ""}
       <span class="summary-item risk">negative headlines <strong>${data.negative_total}</strong></span>
       ${data.severe_total ? `<span class="summary-item risk">severe <strong>${data.severe_total}</strong></span>` : ""}
-      <span class="summary-item">headlines <strong>${data.headline_count}</strong> across <strong>${data.company_count}</strong> holdings</span>`;
+      <span class="summary-item">headlines <strong>${data.headline_count}</strong> across <strong>${data.company_count}</strong> holdings</span>
+      ${holdingsAsOfLabel(data) ? `<span class="summary-item">holdings as of <strong>${esc(holdingsAsOfLabel(data))}</strong></span>` : ""}`;
   }
 
   function renderIndex(companies, data) {
@@ -397,6 +446,20 @@
       parts.push(
         `<div class="banner">Headlines may be delayed — last ${IS_STATIC ? "published snapshot" : "refresh"} was over ${STALE_DATA_HOURS} hours ago.
           ${action}</div>`
+      );
+    }
+    const sync = holdingsSync(data);
+    if (sync.rebalanceDetected && ((sync.added || []).length || (sync.removed || []).length)) {
+      const added = formatTickerList(sync.added);
+      const removed = formatTickerList(sync.removed);
+      const asOf = holdingsAsOfLabel(data);
+      parts.push(
+        `<div class="banner holdings">
+          <span>XPND reconstitution detected${asOf ? ` · official holdings as of <strong>${esc(asOf)}</strong>` : ""}.
+          ${added ? ` Added <strong>${esc(added)}</strong>.` : ""}
+          ${removed ? ` Dropped <strong>${esc(removed)}</strong>.` : ""}
+          News now follows the official First Trust universe.</span>
+        </div>`
       );
     }
     if (state.prevVisit != null) {
@@ -591,7 +654,7 @@
                 <span class="company-ticker">${esc(c.ticker)}</span>
                 ${
                   q
-                    ? `<span class="company-quote ${q.changePct >= 0 ? "up" : "down"}">${q.changePct >= 0 ? "▲" : "▼"}${Math.abs(q.changePct).toFixed(2)}% $${Number(q.price).toFixed(2)}</span>`
+                    ? `<span class="company-quote ${isQuoteOutlier(q) ? "" : q.changePct >= 0 ? "up" : "down"}">${quotePctHTML(q)} $${Number(q.price).toFixed(2)}</span>`
                     : ""
                 }
                 ${c.negative_count ? `<span class="badge-neg${sev ? " severe" : ""}">${c.negative_count} ${sev ? "SEVERE" : "NEG"}</span>` : ""}
@@ -653,7 +716,7 @@
     const data = state.data;
     if (!data) return;
 
-    el.tagline.textContent = `expanded technology etf · ${data.company_count} holdings · updated ${timeAgo(data.generatedAt)}`;
+    el.tagline.textContent = taglineText(data);
     el.footerRight.textContent = IS_STATIC
       ? `static snapshot ${new Date(data.generatedAt).toLocaleString()} · hourly GitHub Actions`
       : `built ${new Date(data.generatedAt).toLocaleString()} · news cached 15m · quotes 10m`;
@@ -1086,8 +1149,7 @@
 
   setInterval(tickCountdown, 1000);
   setInterval(() => {
-    if (state.data) el.tagline.textContent =
-      `expanded technology etf · ${state.data.company_count} holdings · updated ${timeAgo(state.data.generatedAt)}`;
+    if (state.data) el.tagline.textContent = taglineText(state.data);
   }, 60000);
 
   // ---------- load ----------

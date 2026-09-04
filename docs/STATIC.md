@@ -16,14 +16,16 @@
 
 1. Cron (`10 * * * *` UTC) or **Actions → Refresh static site → Run workflow**
 2. `pip install -r requirements.txt`
-3. `python scripts/build_static_data.py`
+3. Unit tests (`python -m unittest discover -s tests`)
+4. `python scripts/update_holdings.py` (best-effort) — official FT universe → `data/holdings.csv` + reconstitution meta
+5. `python scripts/build_static_data.py`
    - Calls `app.payload.build_dashboard_payload(mode="static")`
    - Writes `site/data/dashboard.json`, `alerts.csv`, `meta.json`
    - Syncs `app/static/` → `site/static/`
    - Regenerates `site/index.html` from the live template (relative URLs + static config)
-4. Quality gate (companies + headlines present)
-5. Commit `site/` if changed
-6. Deploy `site/` to GitHub Pages
+6. Quality gate (≥40 companies, headlines present)
+7. Commit `site/` **and** holdings files if changed
+8. Deploy `site/` to GitHub Pages
 
 ## Local static preview
 
