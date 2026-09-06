@@ -1,54 +1,54 @@
 ticker,company_name,cusip,classification,weighting,active
-AAPL,Apple Inc.,037833100,"Technology Hardware, Storage & Peripherals",4.72,true
-NVDA,NVIDIA Corporation,67066G104,Semiconductors & Semiconductor Equipment,4.71,true
-NFLX,Netflix Inc.,64110L106,Entertainment,4.65,true
-GOOGL,Alphabet Inc.,02079K305,Interactive Media & Services,4.60,true
-MSFT,Microsoft Corporation,594918104,Software,4.58,true
-V,Visa Inc.,92826C839,Financial Services,4.55,true
-MA,Mastercard Incorporated,57636Q104,Financial Services,4.53,true
-CSCO,Cisco Systems Inc.,17275R102,Communications Equipment,4.48,true
-PLTR,Palantir Technologies Inc.,69608A108,Software,4.46,true
-LRCX,Lam Research Corporation,512807306,Semiconductors & Semiconductor Equipment,4.42,true
-AVGO,Broadcom Inc.,11135F101,Semiconductors & Semiconductor Equipment,4.39,true
-AMAT,Applied Materials Inc.,038222105,Semiconductors & Semiconductor Equipment,4.33,true
-PANW,Palo Alto Networks Inc.,697435105,Software,3.96,true
-ANET,Arista Networks Inc.,040413205,Communications Equipment,3.62,true
-TXN,Texas Instruments Incorporated,882508104,Semiconductors & Semiconductor Equipment,3.48,true
-KLAC,KLA Corporation,482480100,Semiconductors & Semiconductor Equipment,3.39,true
-CRM,Salesforce Inc.,79466L302,Software,3.27,true
-APH,Amphenol Corporation,032095101,"Electronic Equipment, Instruments & Components",3.04,true
-MRVL,Marvell Technology Inc.,573874104,Semiconductors & Semiconductor Equipment,2.75,true
-QCOM,QUALCOMM Incorporated,747525103,Semiconductors & Semiconductor Equipment,2.70,true
-NOW,ServiceNow Inc.,81762P102,Software,2.26,true
-GLW,Corning Incorporated,219350105,"Electronic Equipment, Instruments & Components",1.89,true
+NVDA,NVIDIA Corporation,67066G104,Semiconductors & Semiconductor Equipment,4.75,true
+LRCX,Lam Research Corporation,512807306,Semiconductors & Semiconductor Equipment,4.65,true
+AAPL,Apple Inc.,037833100,"Technology Hardware, Storage & Peripherals",4.60,true
+GOOGL,Alphabet Inc.,02079K305,Interactive Media & Services,4.54,true
+AMAT,Applied Materials Inc.,038222105,Semiconductors & Semiconductor Equipment,4.52,true
+CSCO,Cisco Systems Inc.,17275R102,Communications Equipment,4.50,true
+V,Visa Inc.,92826C839,Financial Services,4.50,true
+MSFT,Microsoft Corporation,594918104,Software,4.49,true
+MA,Mastercard Incorporated,57636Q104,Financial Services,4.48,true
+AVGO,Broadcom Inc.,11135F101,Semiconductors & Semiconductor Equipment,4.40,true
+NFLX,Netflix Inc.,64110L106,Entertainment,4.40,true
+PLTR,Palantir Technologies Inc.,69608A108,Software,4.26,true
+PANW,Palo Alto Networks Inc.,697435105,Software,3.97,true
+ANET,Arista Networks Inc.,040413205,Communications Equipment,3.67,true
+KLAC,KLA Corporation,482480100,Semiconductors & Semiconductor Equipment,3.64,true
+TXN,Texas Instruments Incorporated,882508104,Semiconductors & Semiconductor Equipment,3.54,true
+CRM,Salesforce Inc.,79466L302,Software,3.20,true
+APH,Amphenol Corporation,032095101,"Electronic Equipment, Instruments & Components",3.06,true
+MRVL,Marvell Technology Inc.,573874104,Semiconductors & Semiconductor Equipment,2.94,true
+QCOM,QUALCOMM Incorporated,747525103,Semiconductors & Semiconductor Equipment,2.71,true
+NOW,ServiceNow Inc.,81762P102,Software,2.19,true
+GLW,Corning Incorporated,219350105,"Electronic Equipment, Instruments & Components",2.00,true
 FTNT,Fortinet Inc.,34959E109,Software,1.72,true
-ADBE,Adobe Incorporated,00724F101,Software,1.71,true
-APP,Applovin Corp.,03831W108,Media,1.58,true
-CDNS,Cadence Design Systems Inc.,127387108,Software,1.26,true
-MSI,Motorola Solutions Inc.,620076307,Communications Equipment,1.17,true
-DDOG,Datadog Inc.,23804L103,Software,1.16,true
-HPE,Hewlett Packard Enterprise Company,42824C109,"Technology Hardware, Storage & Peripherals",1.08,true
-WDAY,Workday Inc.,98138H101,Software,0.27,true
+APP,Applovin Corp.,03831W108,Media,1.61,true
+ADBE,Adobe Incorporated,00724F101,Software,1.59,true
+CDNS,Cadence Design Systems Inc.,127387108,Software,1.21,true
+MSI,Motorola Solutions Inc.,620076307,Communications Equipment,1.16,true
+DDOG,Datadog Inc.,23804L103,Software,1.15,true
+HPE,Hewlett Packard Enterprise Company,42824C109,"Technology Hardware, Storage & Peripherals",1.03,true
+ZM,Zoom Communications Inc.,98980L101,Software,0.27,true
 CPAY,Corpay Inc.,219948106,Financial Services,0.26,true
-GEN,Gen Digital Inc.,668771108,Software,0.26,true
+ENTG,Entegris Inc.,29362U104,Semiconductors & Semiconductor Equipment,0.26,true
+JBL,Jabil Inc.,466313103,"Electronic Equipment, Instruments & Components",0.26,true
+KEYS,Keysight Technologies Inc.,49338L103,"Electronic Equipment, Instruments & Components",0.26,true
+MTSI,MACOM Technology Solutions Holdings Inc.,55405Y100,Semiconductors & Semiconductor Equipment,0.26,true
+MKSI,MKS Inc.,55306N104,Semiconductors & Semiconductor Equipment,0.26,true
 SNX,TD SYNNEX Corporation,87162W100,"Electronic Equipment, Instruments & Components",0.26,true
-TWLO,Twilio Inc.,90138F102,IT Services,0.26,true
-UI,Ubiquiti Inc.,90353W103,Communications Equipment,0.26,true
+TER,Teradyne Inc.,880770102,Semiconductors & Semiconductor Equipment,0.26,true
 ZBRA,Zebra Technologies Corporation,989207105,"Electronic Equipment, Instruments & Components",0.26,true
-ZM,Zoom Communications Inc.,98980L101,Software,0.26,true
-GWRE,Guidewire Software Inc.,40171V100,Software,0.25,true
-JBL,Jabil Inc.,466313103,"Electronic Equipment, Instruments & Components",0.25,true
-KEYS,Keysight Technologies Inc.,49338L103,"Electronic Equipment, Instruments & Components",0.25,true
-MTSI,MACOM Technology Solutions Holdings Inc.,55405Y100,Semiconductors & Semiconductor Equipment,0.25,true
-MKSI,MKS Inc.,55306N104,Semiconductors & Semiconductor Equipment,0.25,true
+GEN,Gen Digital Inc.,668771108,Software,0.25,true
+MPWR,Monolithic Power Systems Inc.,609839105,Semiconductors & Semiconductor Equipment,0.25,true
 NTAP,NetApp Inc.,64110D104,"Technology Hardware, Storage & Peripherals",0.25,true
 ON,ON Semiconductor Corporation,682189105,Semiconductors & Semiconductor Equipment,0.25,true
-TER,Teradyne Inc.,880770102,Semiconductors & Semiconductor Equipment,0.25,true
-ENTG,Entegris Inc.,29362U104,Semiconductors & Semiconductor Equipment,0.24,true
+TWLO,Twilio Inc.,90138F102,IT Services,0.25,true
+UI,Ubiquiti Inc.,90353W103,Communications Equipment,0.25,true
+WDAY,Workday Inc.,98138H101,Software,0.25,true
 FFIV,F5 Inc.,315616102,Communications Equipment,0.24,true
-MPWR,Monolithic Power Systems Inc.,609839105,Semiconductors & Semiconductor Equipment,0.24,true
-ADSK,Autodesk Inc.,052769106,Software,0.23,true
+ADSK,Autodesk Inc.,052769106,Software,0.21,true
 CIEN,Ciena Corporation,171779309,Communications Equipment,0.21,true
+GWRE,Guidewire Software Inc.,40171V100,Software,0.20,true
 TMUS,T-Mobile US Inc.,872590104,Wireless Telecommunication Services,2.84,false
 ADI,Analog Devices Inc.,032654105,Semiconductors & Semiconductor Equipment,2.63,false
 ORCL,Oracle Corporation,68389X105,Software,2.48,false
