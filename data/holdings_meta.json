@@ -1,11 +1,18 @@
 {
   "sourceUrl": "https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=XPND",
-  "syncedAt": "2026-09-15T04:44:46.222812+00:00",
-  "asOf": "2026-09-11",
+  "syncedAt": "2026-09-15T09:59:15.143527+00:00",
+  "asOf": "2026-09-14",
   "equityCount": 50,
   "previousCount": 50,
   "added": [],
   "removed": [],
-  "weightChanges": [],
+  "weightChanges": [
+    {
+      "ticker": "PANW",
+      "from": 3.93,
+      "to": 4.49,
+      "delta": 0.56
+    }
+  ],
   "rebalanceDetected": false
 }
