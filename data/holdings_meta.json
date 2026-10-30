@@ -1,48 +1,11 @@
 {
   "sourceUrl": "https://www.ftportfolios.com/Retail/Etf/EtfHoldings.aspx?Ticker=XPND",
-  "syncedAt": "2026-10-30T19:08:12.955655+00:00",
+  "syncedAt": "2026-10-30T20:41:53.520240+00:00",
   "asOf": "2026-10-29",
   "equityCount": 50,
   "previousCount": 50,
   "added": [],
   "removed": [],
-  "weightChanges": [
-    {
-      "ticker": "LRCX",
-      "from": 4.76,
-      "to": 3.9,
-      "delta": -0.86
-    },
-    {
-      "ticker": "MA",
-      "from": 4.24,
-      "to": 4.99,
-      "delta": 0.75
-    },
-    {
-      "ticker": "V",
-      "from": 4.27,
-      "to": 5.0,
-      "delta": 0.73
-    },
-    {
-      "ticker": "AMAT",
-      "from": 4.95,
-      "to": 4.25,
-      "delta": -0.7
-    },
-    {
-      "ticker": "TXN",
-      "from": 3.76,
-      "to": 4.35,
-      "delta": 0.59
-    },
-    {
-      "ticker": "GOOGL",
-      "from": 4.45,
-      "to": 3.86,
-      "delta": -0.59
-    }
-  ],
+  "weightChanges": [],
   "rebalanceDetected": false
 }
