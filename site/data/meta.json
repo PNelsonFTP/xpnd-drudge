@@ -1,18 +1,18 @@
 {
   "mode": "static",
-  "generatedAt": "2026-11-27T08:09:45.965767+00:00",
+  "generatedAt": "2026-11-27T18:08:23.337103+00:00",
   "company_count": 50,
-  "headline_count": 490,
-  "negative_total": 50,
-  "severe_total": 3,
-  "builtAt": "2026-11-27T08:09:45.982315+00:00",
+  "headline_count": 489,
+  "negative_total": 43,
+  "severe_total": 1,
+  "builtAt": "2026-11-27T18:08:23.353321+00:00",
   "basePath": "/xpnd-drudge/",
   "holdingsAsOf": "2026-11-25",
-  "holdingsSyncedAt": "2026-11-27T08:09:42.838516+00:00",
+  "holdingsSyncedAt": "2026-11-27T18:08:20.250535+00:00",
   "rebalanceDetected": false,
   "holdingsAdded": [],
   "holdingsRemoved": [],
   "missingNews": 0,
-  "quoteCoverage": 0.96,
-  "quotesAsOf": "2026-11-27T08:09:45.965591+00:00"
+  "quoteCoverage": 1.0,
+  "quotesAsOf": "2026-11-27T18:08:23.336927+00:00"
 }
